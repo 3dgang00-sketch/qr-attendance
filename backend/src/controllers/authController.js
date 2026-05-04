@@ -45,8 +45,12 @@ async function login(req, res) {
       return res.status(400).json({ error: 'Email and password required' });
     }
 
+    // Debug logging
+    console.log('[AUTH DEBUG] Login attempt:', { email, passwordLength: password.length });
+
     // Find user
     const result = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
+    console.log('[AUTH DEBUG] User query result rows count:', result.rows ? result.rows.length : 0);
 
     if (!result.rows || result.rows.length === 0) {
       return res.status(401).json({ error: 'Invalid credentials' });
