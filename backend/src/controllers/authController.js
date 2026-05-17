@@ -78,7 +78,7 @@ async function verifyEmail(req, res) {
     }
 
     const result = await pool.query(
-      "SELECT id, email, full_name FROM user_registration_requests WHERE verification_token = ? AND verification_token_expires > datetime('now')",
+      "SELECT id, email, full_name FROM user_registration_requests WHERE verification_token = ? AND verification_token_expires > NOW()",
       [token]
     );
 
