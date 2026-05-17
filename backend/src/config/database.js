@@ -5,16 +5,16 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
-// Wrapper to convert ? to $1, $2 for PostgreSQL
-const originalQuery = pool.query.bind(pool);
-pool.query = function(sql, params = []) {
+const query = async (sql, params = []) => {
   let i = 0;
   const converted = sql.replace(/\?/g, () => `$${++i}`);
-  return originalQuery(converted, params).then(result => ({
+  console.log('[DB Query]', converted, params);
+  const result = await pool.query(converted, params);
+  return {
     rows: result.rows,
     changes: result.rowCount,
     lastID: result.rows[0]?.id
-  }));
+  };
 };
 
-module.exports = pool;
+module.exports = { query };
