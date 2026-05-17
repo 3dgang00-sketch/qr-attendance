@@ -6,13 +6,8 @@ const requiredEnvVars = [
   'PORT',
   'NODE_ENV',
   'JWT_SECRET',
-  'DB_HOST',
-  'DB_PORT',
-  'DB_NAME',
-  'DB_USER',
-  'DB_PASSWORD',
-];
-
+  'DATABASE_URL',
+];                   
 const optionalEnvVars = [
   'ALLOWED_ORIGINS',
   'LOG_LEVEL',
