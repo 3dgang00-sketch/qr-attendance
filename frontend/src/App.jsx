@@ -1,7 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './components/Login';
-import Register from './components/Register';
+import RegisterNew from './components/RegisterNew';
 import StudentScanner from './components/StudentScanner';
 import StudentDashboard from './components/StudentDashboard';
 import LecturerDashboard from './components/LecturerDashboard';
@@ -103,7 +103,7 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
+      <Route path="/register" element={<RegisterNew />} />
       
       <Route path="/student/scan" element={
         <StudentRoute>

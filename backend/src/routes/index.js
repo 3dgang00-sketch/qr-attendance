@@ -11,9 +11,15 @@ const router = express.Router();
 
 // ==================== Auth Routes ====================
 router.post('/auth/register', generalLimiter, authController.register);
+router.post('/auth/verify-email', authController.verifyEmail);
 router.post('/auth/login', loginLimiter, authController.login);
 router.get('/auth/profile', authenticateToken, authController.getProfile);
 router.put('/auth/profile', authenticateToken, authController.updateProfile);
+
+// ==================== Admin: Registration Approval Routes ====================
+router.get('/admin/registration-requests', authenticateToken, authorizeRole('SUPER_ADMIN', 'DEPT_ADMIN'), authController.getPendingRequests);
+router.post('/admin/registration/:requestId/approve', authenticateToken, authorizeRole('SUPER_ADMIN', 'DEPT_ADMIN'), authController.approveRegistration);
+router.post('/admin/registration/:requestId/reject', authenticateToken, authorizeRole('SUPER_ADMIN', 'DEPT_ADMIN'), authController.rejectRegistration);
 
 // ==================== Session Routes ====================
 router.post('/session/create', authenticateToken, authorizeRole('LECTURER', 'SUPER_ADMIN'), sessionController.createSession);
@@ -37,6 +43,7 @@ router.post('/admin/user/deactivate', authenticateToken, authorizeRole('SUPER_AD
 router.post('/admin/user/activate', authenticateToken, authorizeRole('SUPER_ADMIN', 'DEPT_ADMIN'), adminController.activateUser);
 router.put('/admin/user/update', authenticateToken, authorizeRole('SUPER_ADMIN', 'DEPT_ADMIN'), adminController.updateUser);
 router.post('/admin/user/reset-password', authenticateToken, authorizeRole('SUPER_ADMIN', 'DEPT_ADMIN'), adminController.resetUserPassword);
+router.post('/admin/user/delete', authenticateToken, authorizeRole('SUPER_ADMIN', 'DEPT_ADMIN'), adminController.deleteUser);
 router.post('/admin/users/bulk-create', authenticateToken, authorizeRole('SUPER_ADMIN', 'DEPT_ADMIN'), adminController.bulkCreateStudents);
 
 // Geofence Routes

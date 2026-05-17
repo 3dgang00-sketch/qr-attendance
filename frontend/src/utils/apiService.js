@@ -53,6 +53,7 @@ export const adminAPI = {
   updateUser: (data) => api.put('/admin/user/update', data),
   resetUserPassword: (userId, newPassword) =>
     api.post('/admin/user/reset-password', { userId, newPassword }),
+  deleteUser: (userId) => api.post('/admin/user/delete', { userId }),
   bulkCreateStudents: (csvText, defaultDepartment) =>
     api.post('/admin/users/bulk-create', { csvText, defaultDepartment }),
   createGeofenceZone: (data) => api.post('/admin/geofence/create', data),
@@ -69,4 +70,7 @@ export const adminAPI = {
     api.get('/admin/attendance/records', { params: query }),
   getScanAuditLog: (query) => api.get('/admin/audit/scans', { params: query }),
   overrideAttendance: (data) => api.post('/admin/attendance/override', data),
+  getRegistrationRequests: () => api.get('/admin/registration-requests'),
+  approveRegistration: (requestId) => api.post(`/admin/registration/${requestId}/approve`),
+  rejectRegistration: (requestId, reason) => api.post(`/admin/registration/${requestId}/reject`, { reason }),
 };

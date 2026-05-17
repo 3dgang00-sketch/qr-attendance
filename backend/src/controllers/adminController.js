@@ -220,6 +220,67 @@ async function resetUserPassword(req, res) {
   }
 }
 
+// Delete user account
+async function deleteUser(req, res) {
+  try {
+    const { userId } = req.body;
+    if (!userId) {
+      return res.status(400).json({ error: 'userId is required' });
+    }
+
+    const target = await pool.query('SELECT id, role, department FROM users WHERE id = ?', [userId]);
+    if (!target.rows || target.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const scoped = adminDepartmentScope(req);
+    if (scoped && target.rows[0].department !== scoped) {
+      return res.status(403).json({ error: 'Cannot delete users outside your department' });
+    }
+
+    if (['SUPER_ADMIN', 'DEPT_ADMIN'].includes(target.rows[0].role) && req.user.role !== 'SUPER_ADMIN') {
+      return res.status(403).json({ error: 'Only super admin can delete admin accounts' });
+    }
+
+    // Delete all related records in order of dependencies
+    // Delete scan attempts log
+    await pool.query('DELETE FROM scan_attempts_log WHERE student_id = ?', [userId]);
+    
+    // Delete attendance overrides where user is the student
+    await pool.query('DELETE FROM attendance_overrides WHERE student_id = ?', [userId]);
+    
+    // Delete attendance reports
+    await pool.query('DELETE FROM attendance_reports WHERE student_id = ?', [userId]);
+    
+    // Delete attendance records (has ON DELETE CASCADE for student_id)
+    await pool.query('DELETE FROM attendance_records WHERE student_id = ?', [userId]);
+    
+    // Delete course enrollments where user is student (has ON DELETE CASCADE)
+    await pool.query('DELETE FROM course_enrollments WHERE student_id = ?', [userId]);
+    
+    // If user is a lecturer, handle courses and class sessions
+    if (target.rows[0].role === 'LECTURER' || target.rows[0].role === 'SUPER_ADMIN') {
+      // Delete class sessions where user is lecturer
+      await pool.query('DELETE FROM class_sessions WHERE lecturer_id = ?', [userId]);
+      // Delete courses where user is lecturer
+      await pool.query('DELETE FROM courses WHERE lecturer_id = ?', [userId]);
+    }
+    
+    // Handle if user approved registrations (set to NULL)
+    await pool.query('UPDATE user_registration_requests SET approved_by = NULL WHERE approved_by = ?', [userId]);
+    
+    // Handle if user is overridden_by (set to NULL)
+    await pool.query('UPDATE attendance_overrides SET overridden_by = NULL WHERE overridden_by = ?', [userId]);
+    
+    // Finally delete the user
+    await pool.query('DELETE FROM users WHERE id = ?', [userId]);
+
+    res.json({ message: 'User deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
 function parseCsvRows(csvText) {
   const lines = String(csvText || '')
     .split(/\r?\n/)
@@ -736,6 +797,7 @@ module.exports = {
   activateUser,
   updateUser,
   resetUserPassword,
+  deleteUser,
   bulkCreateStudents,
   createGeofenceZone,
   getGeofenceZones,

@@ -7,6 +7,7 @@ const generalLimiter = rateLimit({
   message: 'Too many requests from this IP, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
+  skip: () => process.env.NODE_ENV === 'development' // Skip in development
 });
 
 // Login rate limiter
@@ -15,6 +16,7 @@ const loginLimiter = rateLimit({
   max: 5, // Max 5 login attempts per 15 minutes
   skipSuccessfulRequests: true,
   message: 'Too many login attempts, please try again later.',
+  skip: () => process.env.NODE_ENV === 'development' // Skip in development
 });
 
 // QR code scan rate limiter - per student per session

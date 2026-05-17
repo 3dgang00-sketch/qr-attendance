@@ -68,6 +68,10 @@ function AdminDashboard() {
     justification: '',
   });
 
+  const [registrationRequests, setRegistrationRequests] = useState([]);
+  const [rejectReason, setRejectReason] = useState({});
+  const [processingRequestId, setProcessingRequestId] = useState(null);
+
   const user = JSON.parse(localStorage.getItem('user') || '{}');
 
   const loadStats = useCallback(async () => {
@@ -117,6 +121,11 @@ function AdminDashboard() {
     setAttendanceRecords(res.data);
   }, [recordSearch]);
 
+  const loadRegistrationRequests = useCallback(async () => {
+    const res = await adminAPI.getRegistrationRequests();
+    setRegistrationRequests(res.data?.requests || []);
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -163,7 +172,11 @@ function AdminDashboard() {
         .catch(console.error)
         .finally(() => setLoading(false));
     }
-  }, [activeTab, loadUsers, loadCoursesAndLecturers, loadGeofence, loadReports, loadAudit, loadAttendanceRecords]);
+    if (activeTab === 'requests') {
+      setLoading(true);
+      loadRegistrationRequests().catch(console.error).finally(() => setLoading(false));
+    }
+  }, [activeTab, loadUsers, loadCoursesAndLecturers, loadGeofence, loadReports, loadAudit, loadAttendanceRecords, loadRegistrationRequests]);
 
   const handleDeactivate = async (id) => {
     if (!window.confirm('Deactivate this user? They will not be able to sign in.')) return;
@@ -171,8 +184,9 @@ function AdminDashboard() {
       await adminAPI.deactivateUser(id);
       await loadUsers();
       await loadStats();
+      showNotice('success', 'User deactivated');
     } catch (err) {
-      alert(err.response?.data?.error || err.message);
+      showNotice('error', extractErrorMessage(err));
     }
   };
 
@@ -197,7 +211,7 @@ function AdminDashboard() {
       await loadStats();
       showNotice('success', 'Student account created');
     } catch (err) {
-      showNotice('error', err.response?.data?.error || err.message);
+      showNotice('error', extractErrorMessage(err));
     }
   };
 
@@ -224,7 +238,7 @@ function AdminDashboard() {
       await loadUsers();
       showNotice('success', 'User updated');
     } catch (err) {
-      showNotice('error', err.response?.data?.error || err.message);
+      showNotice('error', extractErrorMessage(err));
     }
   };
 
@@ -239,7 +253,7 @@ function AdminDashboard() {
       setResetPasswordById((prev) => ({ ...prev, [id]: '' }));
       showNotice('success', 'Password reset successful');
     } catch (err) {
-      showNotice('error', err.response?.data?.error || err.message);
+      showNotice('error', extractErrorMessage(err));
     }
   };
 
@@ -255,7 +269,7 @@ function AdminDashboard() {
       await loadStats();
       showNotice('success', 'Bulk import completed');
     } catch (err) {
-      showNotice('error', err.response?.data?.error || err.message);
+      showNotice('error', extractErrorMessage(err));
     }
   };
 
@@ -264,8 +278,21 @@ function AdminDashboard() {
       await adminAPI.activateUser(id);
       await loadUsers();
       await loadStats();
+      showNotice('success', 'User activated');
     } catch (err) {
-      alert(err.response?.data?.error || err.message);
+      showNotice('error', extractErrorMessage(err));
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this user? This action cannot be undone.')) return;
+    try {
+      await adminAPI.deleteUser(id);
+      await loadUsers();
+      await loadStats();
+      showNotice('success', 'User deleted successfully');
+    } catch (err) {
+      showNotice('error', extractErrorMessage(err));
     }
   };
 
@@ -291,9 +318,9 @@ function AdminDashboard() {
       });
       await loadCoursesAndLecturers();
       await loadStats();
-      alert('Course created');
+      showNotice('success', 'Course created');
     } catch (err) {
-      alert(err.response?.data?.error || err.message);
+      showNotice('error', extractErrorMessage(err));
     }
   };
 
@@ -305,9 +332,9 @@ function AdminDashboard() {
       );
       setEnrollStudentId('');
       setEnrollCourseId('');
-      alert('Enrollment saved');
+      showNotice('success', 'Enrollment saved');
     } catch (err) {
-      alert(err.response?.data?.error || err.message);
+      showNotice('error', extractErrorMessage(err));
     }
   };
 
@@ -329,9 +356,9 @@ function AdminDashboard() {
       });
       await loadGeofence();
       await loadStats();
-      alert('Geofence zone created');
+      showNotice('success', 'Geofence zone created');
     } catch (err) {
-      alert(err.response?.data?.error || err.message);
+      showNotice('error', extractErrorMessage(err));
     }
   };
 
@@ -344,8 +371,9 @@ function AdminDashboard() {
       await adminAPI.deleteGeofenceZone(zoneId);
       await loadGeofence();
       await loadStats();
+      showNotice('success', 'Geofence zone deleted');
     } catch (err) {
-      alert(err.response?.data?.error || err.message);
+      showNotice('error', extractErrorMessage(err));
     }
   };
 
@@ -367,9 +395,9 @@ function AdminDashboard() {
       });
       setOverrideForm({ attendanceRecordId: '', overrideStatus: 'PRESENT', justification: '' });
       await loadAttendanceRecords();
-      alert('Attendance updated');
+      showNotice('success', 'Attendance updated');
     } catch (err) {
-      alert(err.response?.data?.error || err.message);
+      showNotice('error', extractErrorMessage(err));
     }
   };
 
@@ -377,6 +405,38 @@ function AdminDashboard() {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     window.location.href = '/login';
+  };
+
+  const handleApproveRegistration = async (requestId) => {
+    try {
+      setProcessingRequestId(requestId);
+      await adminAPI.approveRegistration(requestId);
+      showNotice('success', 'Registration approved! User account created.');
+      await loadRegistrationRequests();
+    } catch (err) {
+      showNotice('error', extractErrorMessage(err));
+    } finally {
+      setProcessingRequestId(null);
+    }
+  };
+
+  const handleRejectRegistration = async (requestId) => {
+    try {
+      const reason = rejectReason[requestId];
+      if (!reason || reason.trim().length === 0) {
+        showNotice('error', 'Please provide a rejection reason');
+        return;
+      }
+      setProcessingRequestId(requestId);
+      await adminAPI.rejectRegistration(requestId, reason);
+      showNotice('success', 'Registration rejected.');
+      setRejectReason((prev) => ({ ...prev, [requestId]: '' }));
+      await loadRegistrationRequests();
+    } catch (err) {
+      showNotice('error', extractErrorMessage(err));
+    } finally {
+      setProcessingRequestId(null);
+    }
   };
 
   const tabStyle = (id) => ({
@@ -387,6 +447,16 @@ function AdminDashboard() {
   const showNotice = (type, text) => {
     setNotice({ type, text });
     setTimeout(() => setNotice({ type: '', text: '' }), 3000);
+  };
+
+  const extractErrorMessage = (err) => {
+    if (typeof err?.response?.data?.error === 'string') {
+      return err.response.data.error;
+    }
+    if (typeof err?.message === 'string') {
+      return err.message;
+    }
+    return 'An error occurred';
   };
 
   const validateNewStudent = () => {
@@ -444,7 +514,7 @@ function AdminDashboard() {
       </div>
 
       <div style={styles.tabs}>
-        {['overview', 'users', 'courses', 'geofence', 'reports', 'audit', 'overrides'].map((id) => (
+        {['overview', 'requests', 'users', 'courses', 'geofence', 'reports', 'audit', 'overrides'].map((id) => (
           <button key={id} type="button" onClick={() => setActiveTab(id)} style={tabStyle(id)}>
             {id === 'overrides' ? 'Overrides' : id.charAt(0).toUpperCase() + id.slice(1)}
           </button>
@@ -496,6 +566,85 @@ function AdminDashboard() {
                   </p>
                 </div>
               </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'requests' && (
+          <div>
+            <h2>Registration requests</h2>
+            <p style={styles.hint}>Review and approve or reject pending user registration requests. Users must verify their email before approval.</p>
+            {registrationRequests.length === 0 ? (
+              <div style={{ ...styles.formSection, textAlign: 'center', color: '#888' }}>
+                <p>No pending registration requests</p>
+              </div>
+            ) : (
+              <table style={styles.table}>
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Requested Role</th>
+                    <th>Department</th>
+                    <th>Email Verified</th>
+                    <th>Status</th>
+                    <th>Requested</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {registrationRequests.map((req) => (
+                    <tr key={req.id}>
+                      <td>{req.full_name}</td>
+                      <td>{req.email}</td>
+                      <td>{req.proposed_role}</td>
+                      <td>{req.department || '—'}</td>
+                      <td>{req.is_email_verified ? '✓ Yes' : '✗ No'}</td>
+                      <td>{req.request_status}</td>
+                      <td>{new Date(req.requested_at).toLocaleDateString()}</td>
+                      <td>
+                        <div style={styles.actionWrap}>
+                          {req.request_status === 'PENDING' && !req.is_email_verified && (
+                            <span style={styles.muted}>Awaiting email verification</span>
+                          )}
+                          {req.request_status === 'EMAIL_VERIFIED' && (
+                            <>
+                              <button
+                                type="button"
+                                style={styles.okBtn}
+                                onClick={() => handleApproveRegistration(req.id)}
+                                disabled={processingRequestId === req.id}
+                              >
+                                {processingRequestId === req.id ? 'Processing...' : 'Approve'}
+                              </button>
+                              <textarea
+                                placeholder="Reason for rejection (if needed)"
+                                value={rejectReason[req.id] || ''}
+                                onChange={(e) => setRejectReason((prev) => ({ ...prev, [req.id]: e.target.value }))}
+                                style={{ ...styles.input, width: 160, height: 50, fontSize: 12 }}
+                              />
+                              <button
+                                type="button"
+                                style={styles.dangerBtn}
+                                onClick={() => handleRejectRegistration(req.id)}
+                                disabled={processingRequestId === req.id}
+                              >
+                                {processingRequestId === req.id ? 'Processing...' : 'Reject'}
+                              </button>
+                            </>
+                          )}
+                          {req.request_status === 'APPROVED' && (
+                            <span style={{ ...styles.muted, color: '#2e7d32' }}>✓ Approved</span>
+                          )}
+                          {req.request_status === 'REJECTED' && (
+                            <span style={{ ...styles.muted, color: '#e53935' }}>✗ Rejected</span>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             )}
           </div>
         )}
@@ -598,6 +747,11 @@ function AdminDashboard() {
                           style={styles.input}
                         />
                         <button type="button" style={styles.submitBtn} onClick={() => handleResetPassword(u.id)}>Reset PW</button>
+                        {['SUPER_ADMIN', 'DEPT_ADMIN'].includes(u.role) ? (
+                          <span style={styles.muted}>—</span>
+                        ) : (
+                          <button type="button" style={{ ...styles.dangerBtn, backgroundColor: '#d32f2f' }} onClick={() => handleDelete(u.id)}>Delete</button>
+                        )}
                       </div>
                     </td>
                   </tr>

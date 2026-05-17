@@ -1,5 +1,26 @@
 -- SQLite3 Schema for Attendance Management System
 
+-- User Registration Requests (Admin approval required)
+CREATE TABLE IF NOT EXISTS user_registration_requests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    proposed_role VARCHAR(50) NOT NULL CHECK (proposed_role IN ('SUPER_ADMIN', 'DEPT_ADMIN', 'LECTURER', 'STUDENT')),
+    department VARCHAR(100),
+    verification_token VARCHAR(255) UNIQUE,
+    verification_token_expires TIMESTAMP,
+    is_email_verified BOOLEAN DEFAULT 0,
+    request_status VARCHAR(50) DEFAULT 'PENDING' CHECK (request_status IN ('PENDING', 'EMAIL_VERIFIED', 'APPROVED', 'REJECTED')),
+    rejection_reason TEXT,
+    requested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    verified_at TIMESTAMP,
+    approved_by INTEGER REFERENCES users(id),
+    approved_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Users Table (Students, Lecturers, Admins)
 CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -137,6 +158,9 @@ CREATE TABLE IF NOT EXISTS attendance_reports (
 );
 
 -- Create Indexes for Performance
+CREATE INDEX IF NOT EXISTS idx_user_registration_email ON user_registration_requests(email);
+CREATE INDEX IF NOT EXISTS idx_user_registration_status ON user_registration_requests(request_status);
+CREATE INDEX IF NOT EXISTS idx_user_registration_token ON user_registration_requests(verification_token);
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_users_user_id ON users(user_id);
 CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
